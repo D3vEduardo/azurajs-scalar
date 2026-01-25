@@ -184,8 +184,8 @@ Verifique se a API está rodando em &{proxy_url}
 
 ### 🔧 External Variables
 
-- `&{proxy_url}` - The proxy URL configured in your [configuration](####src/index.ts)
-- `&{api_spec_url}` - The API specification URL configured in your [configuration](####src/index.ts)
+- `&{proxy_url}` - The proxy URL configured in your [configuration](#srcindexts)
+- `&{api_spec_url}` - The API specification URL configured in your [configuration](#srcindexts)
 
 ---
 
