@@ -1,0 +1,26 @@
+{
+  "name": "azurajs-scalar",
+  "version": "1.0.2",
+  "description": "Proxy middleware and controller to scalar documentation.",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "types": "dist/index.d.ts",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.25.0",
+  "dependencies": {
+    "azurajs": "2.6.1-1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}

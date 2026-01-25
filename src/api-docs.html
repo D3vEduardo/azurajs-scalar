@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Versum API - Sistine Chapel Theme</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+
+  <body>
+    <div id="app">Carregando...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      fetch("&{api_spec_url}")
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((spec) => {
+          console.log("Spec carregado:", spec);
+
+          Scalar.createApiReference("#app", {
+            spec: {
+              content: spec,
+            },
+            proxy: "&{proxy_url}",
+            theme: "default",
+          });
+        })
+        .catch((err) => {
+          console.error("Erro ao carregar spec:", err);
+          document.getElementById("app").innerHTML =
+            `<pre style="color: red; padding: 20px;">
+Erro ao carregar API spec: ${err.message}
+
+Verifique se a API está rodando em &{proxy_url}
+            </pre>`;
+        });
+    </script>
+  </body>
+</html>

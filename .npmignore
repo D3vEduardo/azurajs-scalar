@@ -1,0 +1,18 @@
+# Ignore source files - we only want the compiled output
+src/
+node_modules/
+*.test.ts
+*.spec.ts
+*.config.*
+.git
+.github
+.nyc_output
+coverage
+.vscode
+docs
+__tests__
+tests
+test
+# Specific files to ignore
+tsconfig.json
+tsup.config.ts
