@@ -5,109 +5,177 @@ import { debug } from "../utils/debug";
 export function proxyMiddleware({
   apiSpecUrl,
   app,
+  baseUrl,
   proxyUrlPath,
 }: ProxyOptions) {
-  debug("Setting up proxy middleware with options:", {
+  debug("Setting up proxy middleware:", {
     apiSpecUrl,
     proxyUrlPath,
   });
-  app.get(proxyUrlPath, () => {});
-  return app.use(proxyUrlPath, async (req, res) => {
-    debug("Proxy middleware hit with request:", req.method, req.url, "headers:", req.headers);
+  return app.get(proxyUrlPath, async (req, res) => {
+    debug("=== PROXY HIT ===");
+    debug("Method:", req.method);
+    debug("URL:", req.url);
+    debug("Headers:", req.headers);
+
     try {
       if (!req.url || !req.method) {
-        debug("Invalid request - missing url or method");
-        res.status(400).json({ error: "Invalid request" });
-        return;
+        return res.status(400).json({ error: "Invalid request" });
       }
 
       logger("info", `[PROXY] ${req.method} ${req.url}`);
 
-      // Extract target URL from scalar_url query param
-      const url = new URL(`http://localhost${req.url}`);
-      const scalarUrl = url.searchParams.get("scalar_url");
-      debug("Extracted scalar_url from query params:", scalarUrl);
+      /* =========================
+         TARGET URL
+      ========================= */
+      const query = new URLSearchParams(req.url.split("?")[1] || "");
+      const scalarUrl = query.get("scalar_url");
+      const targetUrl = scalarUrl || apiSpecUrl;
 
-      // Determine target URL
-      const targetUrl = scalarUrl || apiSpecUrl + url.pathname + url.search;
-      debug("Determined target URL:", targetUrl);
+      debug("Target URL:", targetUrl);
 
-      // Validate same origin for security
+      /* =========================
+         SAME-ORIGIN
+      ========================= */
       const target = new URL(targetUrl);
       const apiBase = new URL(apiSpecUrl);
-      debug(
-        "Validating same origin - target origin:",
-        target.origin,
-        "apiBase origin:",
-        apiBase.origin,
-      );
-      if (target.origin !== apiBase.origin) {
-        logger("warn", `Blocked cross-origin: ${targetUrl}`);
-        res.status(403).json({ error: "Cross-origin blocked" });
-        return;
+      const baseOrigin = new URL(baseUrl).origin;
+
+      const allowed =
+        target.origin === apiBase.origin || target.origin === baseOrigin;
+
+      debug("Origin check:", {
+        target: target.origin,
+        apiSpec: apiBase.origin,
+        base: baseOrigin,
+        allowed,
+      });
+
+      if (!allowed) {
+        logger("warn", `[PROXY] Blocked cross-origin: ${targetUrl}`);
+        return res.status(403).json({ error: "Cross-origin blocked" });
       }
 
-      logger("info", `[PROXY] Forwarding to: ${targetUrl}`);
-
-      // Prepare headers and body
+      /* =========================
+         HEADERS
+      ========================= */
       const headers: Record<string, string> = {};
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (value) {
-          headers[key] = Array.isArray(value) ? value.join(", ") : value;
-        }
-      }
-      headers.host = apiBase.host;
-      debug("Prepared headers:", headers);
 
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (!v) continue;
+        headers[k] = Array.isArray(v) ? v.join(", ") : v;
+      }
+
+      headers.host = apiBase.host;
+
+      debug("Forward headers:", headers);
+
+      /* =========================
+         BODY
+      ========================= */
       const body = ["GET", "HEAD"].includes(req.method)
         ? undefined
         : typeof req.body === "string"
           ? req.body
           : JSON.stringify(req.body);
-      debug("Request body:", body);
 
-      // Make request to target
-      debug("Making fetch request to target URL:", targetUrl);
+      debug("Forward body type:", typeof body);
+      debug("Forward body length:", body?.length ?? 0);
+
+      /* =========================
+         FETCH
+      ========================= */
       const proxyRes = await fetch(targetUrl, {
         method: req.method,
         headers,
         body,
       });
-      debug(
-        "Fetch response received with status:",
-        proxyRes.status,
-      );
 
-      // Set response headers
+      debug("=== FETCH RESPONSE ===");
+      debug("Status:", proxyRes.status);
+      debug("StatusText:", proxyRes.statusText);
+      debug("URL:", proxyRes.url);
+
+      const headersObj: Record<string, string> = {};
+      for (const [k, v] of proxyRes.headers.entries()) {
+        headersObj[k] = v;
+      }
+      debug("Response headers:", headersObj);
+
+      debug("content-type:", proxyRes.headers.get("content-type"));
+      debug("content-encoding:", proxyRes.headers.get("content-encoding"));
+      debug("transfer-encoding:", proxyRes.headers.get("transfer-encoding"));
+      debug("content-length:", proxyRes.headers.get("content-length"));
+
+      /* =========================
+         CORS
+      ========================= */
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader(
         "Access-Control-Allow-Methods",
-        "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD",
       );
       res.setHeader("Access-Control-Allow-Headers", "*");
+      res.setHeader("Access-Control-Expose-Headers", "*");
 
+      /* =========================
+         SAFE HEADERS PASS
+      ========================= */
       for (const [key, value] of proxyRes.headers.entries()) {
-        if (!key.toLowerCase().startsWith("access-control-")) {
-          res.setHeader(key, value);
-        }
+        const k = key.toLowerCase();
+
+        // quebram proxy quando body já vem decodado
+        if (k === "content-encoding") continue;
+        if (k === "content-length") continue;
+
+        // headers de conexão
+        if (
+          [
+            "connection",
+            "keep-alive",
+            "transfer-encoding",
+            "te",
+            "trailer",
+            "upgrade",
+            "host",
+          ].includes(k)
+        )
+          continue;
+
+        res.setHeader(key, value);
       }
 
       if (req.method === "OPTIONS") {
-        debug("OPTIONS request, ending response");
-        res.end();
-        return;
+        debug("OPTIONS request -> end");
+        return res.end();
       }
 
-      const buffer = Buffer.from(await proxyRes.arrayBuffer());
+      /* =========================
+         DEBUG SEVERO BODY
+      ========================= */
+      const arrayBuf = await proxyRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuf);
+
+      debug("=== BODY DEBUG ===");
+      debug("ArrayBuffer byteLength:", arrayBuf.byteLength);
+      debug("Buffer length:", buffer.length);
+      debug("Buffer empty:", buffer.length === 0);
+      debug("First 50 bytes (hex):", buffer.subarray(0, 50).toString("hex"));
       debug(
-        "Response buffer created with length:",
-        buffer.length,
+        "First 200 chars (utf8):",
+        buffer.subarray(0, 200).toString("utf8"),
       );
-      res.send(buffer);
+      debug("=== END BODY DEBUG ===");
+
+      /* =========================
+         SEND
+      ========================= */
+      res.status(proxyRes.status).send(buffer);
     } catch (err) {
-      debug("Error in proxy middleware:", err);
+      debug("=== PROXY ERROR ===");
+      debug("Ocorreu um erro no proxy...", err);
       logger("error", `[PROXY] Error: ${err}`);
-      res.status(500).json({ error: "Proxy error", details: String(err) });
+      res.status(500).json({ error: "Proxy error" });
     }
   });
 }

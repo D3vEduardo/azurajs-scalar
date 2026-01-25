@@ -69,6 +69,7 @@ export class Scalar {
       apiSpecUrl,
       proxyUrlPath: proxyPath,
       app: normalizedConfig.app,
+      baseUrl: normalizedConfig.baseUrl,
     });
     debug("proxyMiddleware called");
   }

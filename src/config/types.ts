@@ -38,6 +38,7 @@ export interface ProxyOptions {
   apiSpecUrl: string;
   proxyUrlPath: string;
   app: AzuraClient;
+  baseUrl: string;
 }
 
 export interface SetupDocsRouteOptions extends ScalarConfigType {
