@@ -48,42 +48,21 @@ import * from "./controllers"
 
 const app = new AzuraClient();
 
-const __filename = fileURLToPath(import.meta.url); // Optional
-const __dirname = path.dirname(__filename); // Optional
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const scalar = new Scalar({
-  apiSpecUrl: "http://localhost:4002/api-spec.json",
-  proxyUrl: "http://localhost:4002",
-  customHtmlPath: path.join(__dirname, "./public/html/api-docs.html"), // Optional
+const baseUrl = env.APP_URL || "http://localhost:4002";
+
+new Scalar({
+  apiSpecPath: "/api-spec.json",
+  proxyPath: "/scalar/proxy/",
+  docPath: "/docs/",
+  customHtmlPath: path.join(__dirname, "./public/html/api-docs.html"),
+  app,
+  baseUrl,
 });
 
 applyDecorators(app, Object.values(Controllers))
-```
-
-### Controller Setup
-
-#### src/controllers/docs.controller.ts
-
-```ts
-import { Controller, Get, Res } from "azurajs/decorators";
-import { ResponseServer } from "azurajs/types";
-import { getScalarDocs } from "azurajs-scalar";
-
-@Controller("/docs")
-export class DocsController {
-  @Get("/")
-  scalarDocs(@Res() res: ResponseServer) {
-    getScalarDocs(res);
-  }
-}
-```
-
-### Export Controllers
-
-#### src/controllers/index.ts
-
-```ts
-export * from "./docs.controller.ts";
 ```
 
 ---

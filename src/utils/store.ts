@@ -16,7 +16,10 @@ class ScalarStore {
    * @param key The key to set
    * @param value The value to set (if undefined, the key will be removed)
    */
-  set<K extends keyof ScalarStoreType>(key: K, value: ScalarStoreType[K]): void {
+  set<K extends keyof ScalarStoreType>(
+    key: K,
+    value: ScalarStoreType[K],
+  ): void {
     this.store.set(key, value as string | undefined);
   }
 

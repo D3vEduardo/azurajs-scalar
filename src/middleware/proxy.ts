@@ -1,108 +1,113 @@
-/**
- * @fileoverview Proxy middleware for API requests
- * This module provides a proxy middleware that forwards requests to the API specification
- */
-
 import { ProxyOptions } from "../config/types";
-import { NextFunction, RequestServer, ResponseServer } from "azurajs/types";
 import { logger } from "azurajs/logger";
+import { debug } from "../utils/debug";
 
-/**
- * Creates a proxy middleware function that forwards requests to the API specification
- * @param options Configuration options for the proxy
- * @returns Middleware function that handles proxying requests
- */
 export function proxyMiddleware({
   apiSpecUrl,
-}: ProxyOptions): (
-  req: RequestServer,
-  res: ResponseServer,
-  next?: NextFunction,
-) => Promise<void> {
-  return async (
-    req: RequestServer,
-    res: ResponseServer,
-    _next?: NextFunction,
-  ): Promise<void> => {
+  app,
+  proxyUrlPath,
+}: ProxyOptions) {
+  debug("Setting up proxy middleware with options:", {
+    apiSpecUrl,
+    proxyUrlPath,
+  });
+  app.get(proxyUrlPath, () => {});
+  return app.use(proxyUrlPath, async (req, res) => {
+    debug("Proxy middleware hit with request:", req.method, req.url, "headers:", req.headers);
     try {
       if (!req.url || !req.method) {
-        res.status(400).json({
-          error: "Request URL and method are required",
-          code: "INVALID_REQUEST"
-        });
+        debug("Invalid request - missing url or method");
+        res.status(400).json({ error: "Invalid request" });
         return;
       }
 
       logger("info", `[PROXY] ${req.method} ${req.url}`);
 
-      const url = new URL(req.url, "http://localhost");
-      const targetUrl = apiSpecUrl + url.pathname + url.search;
+      // Extract target URL from scalar_url query param
+      const url = new URL(`http://localhost${req.url}`);
+      const scalarUrl = url.searchParams.get("scalar_url");
+      debug("Extracted scalar_url from query params:", scalarUrl);
+
+      // Determine target URL
+      const targetUrl = scalarUrl || apiSpecUrl + url.pathname + url.search;
+      debug("Determined target URL:", targetUrl);
+
+      // Validate same origin for security
+      const target = new URL(targetUrl);
+      const apiBase = new URL(apiSpecUrl);
+      debug(
+        "Validating same origin - target origin:",
+        target.origin,
+        "apiBase origin:",
+        apiBase.origin,
+      );
+      if (target.origin !== apiBase.origin) {
+        logger("warn", `Blocked cross-origin: ${targetUrl}`);
+        res.status(403).json({ error: "Cross-origin blocked" });
+        return;
+      }
 
       logger("info", `[PROXY] Forwarding to: ${targetUrl}`);
 
-      // Convert Node.js headers to a format compatible with fetch
+      // Prepare headers and body
       const headers: Record<string, string> = {};
       for (const [key, value] of Object.entries(req.headers)) {
         if (value) {
           headers[key] = Array.isArray(value) ? value.join(", ") : value;
         }
       }
-      headers.host = new URL(apiSpecUrl).host;
+      headers.host = apiBase.host;
+      debug("Prepared headers:", headers);
 
-      // Prepare request body
-      let body: BodyInit | null = null;
-      if (!["GET", "HEAD"].includes(req.method)) {
-        // For non-GET/HEAD requests, we need to properly serialize the body
-        // Since req might contain various data types, we need to handle appropriately
-        if (req.body) {
-          if (typeof req.body === 'string') {
-            body = req.body;
-          } else if (typeof req.body === 'object') {
-            body = JSON.stringify(req.body);
-          }
-        }
-      }
+      const body = ["GET", "HEAD"].includes(req.method)
+        ? undefined
+        : typeof req.body === "string"
+          ? req.body
+          : JSON.stringify(req.body);
+      debug("Request body:", body);
 
+      // Make request to target
+      debug("Making fetch request to target URL:", targetUrl);
       const proxyRes = await fetch(targetUrl, {
         method: req.method,
         headers,
         body,
       });
+      debug(
+        "Fetch response received with status:",
+        proxyRes.status,
+      );
 
-      logger("info", `[PROXY] Response: ${proxyRes.status}`);
+      // Set response headers
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      );
+      res.setHeader("Access-Control-Allow-Headers", "*");
 
-      // CORS - IMPORTANT: define before copying response headers
-      const responseHeaders: Record<string, string> = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "*",
-      };
-
-      // Copy response headers, avoiding CORS header conflicts
       for (const [key, value] of proxyRes.headers.entries()) {
-        // Don't overwrite CORS headers
         if (!key.toLowerCase().startsWith("access-control-")) {
-          responseHeaders[key] = value;
+          res.setHeader(key, value);
         }
       }
 
-      res.writeHead(proxyRes.status, responseHeaders);
-
       if (req.method === "OPTIONS") {
+        debug("OPTIONS request, ending response");
         res.end();
         return;
       }
 
       const buffer = Buffer.from(await proxyRes.arrayBuffer());
-      res.end(buffer);
+      debug(
+        "Response buffer created with length:",
+        buffer.length,
+      );
+      res.send(buffer);
     } catch (err) {
+      debug("Error in proxy middleware:", err);
       logger("error", `[PROXY] Error: ${err}`);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        error: "Proxy error",
-        details: err instanceof Error ? err.message : String(err),
-        code: "PROXY_ERROR"
-      }));
+      res.status(500).json({ error: "Proxy error", details: String(err) });
     }
-  };
+  });
 }

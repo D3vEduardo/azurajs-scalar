@@ -9,7 +9,7 @@
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts"
+    "build": "tsup"
   },
   "keywords": [],
   "author": "",

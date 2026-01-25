@@ -1,75 +1,155 @@
 /**
- * @fileoverview Scalar client for API documentation proxy
- * This module provides a client for setting up API documentation with proxy capabilities
+ * Scalar client for API documentation
  */
-
-import { ProxyMiddlewareType, ScalarConfigType, ScalarError } from "./config/types";
+import {
+  ScalarConfigType,
+  ScalarError,
+  SetupDocsRouteOptions,
+} from "./config/types";
 import { proxyMiddleware } from "./middleware/proxy";
+import { setupScalarDocs } from "./setupDocsRoute";
 import { store } from "./utils/store";
+import { debug } from "./utils/debug";
 
-/**
- * Scalar client class for managing API documentation proxy
- */
 export class Scalar {
-  /**
-   * Middleware function that handles proxying requests to the API specification
-   */
-  public proxyMiddleware: ProxyMiddlewareType;
-
-  /**
-   * Creates a new Scalar client instance
-   * @param config Configuration object for the Scalar client
-   */
   constructor(config: ScalarConfigType) {
-    this.validateConfig(config);
+    debug("Scalar constructor called with config:", config);
 
-    store.set("proxy_url", config.proxyUrl);
-    store.set("api_spec_url", config.apiSpecUrl);
-    store.set("custom_html_path", config.customHtmlPath);
+    // Normalize baseUrl to ensure it's a valid absolute URL before validation
+    const normalizedConfig = { ...config };
+    normalizedConfig.baseUrl = this.normalizeBaseUrl(config.baseUrl);
+    debug("Normalized config:", normalizedConfig);
 
-    this.proxyMiddleware = proxyMiddleware({ apiSpecUrl: config.apiSpecUrl });
+    // Validate the configuration
+    this.validateConfig(normalizedConfig);
+
+    // Set default paths if not provided
+    const proxyPath = normalizedConfig.proxyPath || "/scalar/proxy";
+    const docPath = normalizedConfig.docPath || "/docs";
+    const apiSpecPath = normalizedConfig.apiSpecPath || "";
+    debug(
+      "Using paths - proxyPath:",
+      proxyPath,
+      "docPath:",
+      docPath,
+      "apiSpecPath:",
+      apiSpecPath,
+    );
+
+    // Calculate full URLs from baseUrl and paths
+    const proxyUrl = this.joinUrl(normalizedConfig.baseUrl, proxyPath);
+    const docUrl = this.joinUrl(normalizedConfig.baseUrl, docPath);
+    const apiSpecUrl = this.joinUrl(normalizedConfig.baseUrl, apiSpecPath);
+    debug(
+      "Calculated URLs - proxyUrl:",
+      proxyUrl,
+      "docUrl:",
+      docUrl,
+      "apiSpecUrl:",
+      apiSpecUrl,
+    );
+
+    // Store the calculated URLs
+    store.set("proxy_url", proxyUrl);
+    store.set("api_spec_url", apiSpecUrl);
+    store.set("doc_url", docUrl);
+    debug("Stored URLs in store");
+
+    // Call setup with the calculated URLs
+    setupScalarDocs({
+      ...normalizedConfig,
+      proxyUrl,
+      docPath,
+      apiSpecUrl,
+    });
+    debug("setupScalarDocs called");
+
+    // Setup proxy middleware
+    proxyMiddleware({
+      apiSpecUrl,
+      proxyUrlPath: proxyPath,
+      app: normalizedConfig.app,
+    });
+    debug("proxyMiddleware called");
   }
 
-  /**
-   * Validates the provided configuration
-   * @param config Configuration object to validate
-   * @throws ScalarError if configuration is invalid
-   */
+  private joinUrl(baseUrl: string, path: string): string {
+    // Normalize the baseUrl to ensure it ends with a slash
+    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+
+    // Normalize the path to ensure it starts with a slash
+    const normalizedPath = path.startsWith("/") ? path : "/" + path;
+
+    // Join the baseUrl and path, removing any double slashes
+    return normalizedBaseUrl.replace(/\/$/, "") + normalizedPath;
+  }
+
+  private normalizeBaseUrl(baseUrl: string): string {
+    if (!baseUrl) {
+      throw new ScalarError(
+        "baseUrl is required",
+        "MISSING_REQUIRED_CONFIG",
+        400,
+      );
+    }
+
+    // If baseUrl doesn't start with a protocol, prepend http://
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      return "http://" + baseUrl;
+    }
+
+    return baseUrl;
+  }
+
   private validateConfig(config: ScalarConfigType): void {
-    if (!config.apiSpecUrl) {
+    if (!config.baseUrl) {
       throw new ScalarError(
-        "apiSpecUrl is required",
-        "MISSING_API_SPEC_URL",
-        400
-      );
-    }
-
-    if (!config.proxyUrl) {
-      throw new ScalarError(
-        "proxyUrl is required",
-        "MISSING_PROXY_URL",
-        400
+        "baseUrl is required",
+        "MISSING_REQUIRED_CONFIG",
+        400,
       );
     }
 
     try {
-      new URL(config.apiSpecUrl);
-    } catch (error) {
-      throw new ScalarError(
-        "apiSpecUrl must be a valid URL",
-        "INVALID_API_SPEC_URL",
-        400
-      );
-    }
+      // Validate baseUrl
+      debug("Validating baseUrl:", config.baseUrl);
+      new URL(config.baseUrl);
 
-    try {
-      new URL(config.proxyUrl);
+      // Validate paths if provided
+      if (config.proxyPath) {
+        debug("Validating proxyPath:", config.proxyPath);
+        if (!this.isValidPath(config.proxyPath)) {
+          debug("proxyPath validation FAILED");
+          throw new Error("Invalid proxyPath");
+        }
+      }
+
+      if (config.docPath) {
+        debug("Validating docPath:", config.docPath);
+        if (!this.isValidPath(config.docPath)) {
+          debug("docPath validation FAILED");
+          throw new Error("Invalid docPath");
+        }
+      }
+
+      if (config.apiSpecPath) {
+        debug("Validating apiSpecPath:", config.apiSpecPath);
+        if (!this.isValidPath(config.apiSpecPath)) {
+          debug("apiSpecPath validation FAILED");
+          throw new Error("Invalid apiSpecPath");
+        }
+      }
     } catch (error) {
-      throw new ScalarError(
-        "proxyUrl must be a valid URL",
-        "INVALID_PROXY_URL",
-        400
-      );
+      debug("Validation error:", error);
+      throw new ScalarError("Invalid URL provided", "INVALID_URL", 400);
     }
+  }
+
+  private isValidPath(path: string): boolean {
+    // Aceita paths relativos com barras no meio e no final
+    return (
+      typeof path === "string" &&
+      /^\/[a-zA-Z0-9\-._~:\/@!$&'()*+,;=]*\/?$/.test(path)
+    );
   }
 }
