@@ -1,6 +1,6 @@
 {
   "name": "azurajs-scalar",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Proxy middleware and controller to scalar documentation.",
   "type": "module",
   "publishConfig": {
