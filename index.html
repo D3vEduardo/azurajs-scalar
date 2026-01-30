@@ -1,10 +1,296 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta http-equiv="refresh" content="0; url=https://github.com/D3vEduardo/D3vEduardo">
-  <title>Redirecting...</title>
+  <meta charset="utf-8"/>
+  <title>Markdown Viewer</title>
+
+  <!-- Fonte -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap');
+  </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+<!-- and it's easy to individually load additional languages -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/go.min.js"></script>
+
+  
+  <!-- Marked -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root {
+      --radius: 12px;
+
+      /* Light theme */
+      --bg: #ffffff;
+      --bg-secondary: #f4f4f5;
+      --text: #09090b;
+      --text-muted: #71717a;
+      --border: #e4e4e7;
+      --card: #ffffff;
+      --accent: #0f172a;
+      --code-bg: #f4f4f5;
+    }
+
+    /* ============================= */
+/* Highlight.js custom theme     */
+/* shadcn vibes + light/dark     */
+/* ============================= */
+
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Light theme tokens */
+:root {
+  --hl-keyword: #2563eb;   /* blue-600 */
+  --hl-string: #16a34a;    /* green-600 */
+  --hl-number: #9333ea;    /* purple-600 */
+  --hl-function: #0f172a;  /* zinc-900 */
+  --hl-comment: #71717a;   /* zinc-500 */
+  --hl-variable: #ea580c;  /* orange-600 */
+  --hl-type: #0284c7;      /* sky-600 */
+}
+
+/* Dark theme tokens */
+.dark {
+  --hl-keyword: #60a5fa;   /* blue-400 */
+  --hl-string: #4ade80;   /* green-400 */
+  --hl-number: #c084fc;   /* purple-400 */
+  --hl-function: #e5e7eb; /* zinc-200 */
+  --hl-comment: #a1a1aa;  /* zinc-400 */
+  --hl-variable: #fb923c; /* orange-400 */
+  --hl-type: #38bdf8;     /* sky-400 */
+}
+
+/* Highlight classes */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal {
+  color: var(--hl-keyword);
+  font-weight: 600;
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-name {
+  color: var(--hl-string);
+}
+
+.hljs-number {
+  color: var(--hl-number);
+}
+
+.hljs-function,
+.hljs-attr {
+  color: var(--hl-function);
+}
+
+.hljs-comment {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--hl-variable);
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--hl-type);
+}
+
+
+    .dark {
+      /* Dark theme */
+      --bg: #09090b;
+      --bg-secondary: #18181b;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --border: #27272a;
+      --card: #0f0f12;
+      --accent: #fafafa;
+      --code-bg: #0f0f12;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background .3s, color .3s;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 12px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(10px);
+    }
+
+    .title {
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .theme-toggle {
+      cursor: pointer;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text);
+      font-size: 13px;
+      transition: .2s;
+    }
+
+    .theme-toggle:hover {
+      opacity: .8;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+    }
+
+    /* Markdown style (shadcn vibes) */
+
+    #content h1, h2, h3 {
+      letter-spacing: -0.03em;
+      margin: 24px 0 12px;
+    }
+
+    #content h1 { font-size: 2rem; }
+    #content h2 { font-size: 1.5rem; }
+    #content h3 { font-size: 1.25rem; }
+
+    #content p {
+      line-height: 1.7;
+      margin: 12px 0;
+      color: var(--text);
+    }
+
+    #content a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    #content ul {
+      padding-left: 20px;
+      margin: 12px 0;
+    }
+
+    #content li {
+      margin: 6px 0;
+    }
+
+    #content blockquote {
+      border-left: 3px solid var(--border);
+      padding-left: 12px;
+      margin: 12px 0;
+      color: var(--text-muted);
+    }
+
+    #content pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+
+    #content code {
+      background: var(--code-bg);
+      padding: 4px 6px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    #content img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin: 12px 0;
+      border: 1px solid var(--border);
+    }
+  </style>
 </head>
+
 <body>
-  <p>Redirecting to <a href="https://github.com/D3vEduardo/D3vEduardo">GitHub Repo</a></p>
+  <div class="app">
+    <div class="topbar">
+      <div class="title">📄 Markdown Viewer</div>
+      <button class="theme-toggle" id="themeToggle">🌙 Dark</button>
+    </div>
+
+    <div class="card">
+      <div id="content">Carregando markdown...</div>
+    </div>
+  </div>
+
+<script type="module">
+  const toggleBtn = document.getElementById('themeToggle');
+  const root = document.documentElement;
+
+  // Tema salvo
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    root.classList.add('dark');
+    toggleBtn.innerText = '☀️ Light';
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    root.classList.toggle('dark');
+    const isDark = root.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    toggleBtn.innerText = isDark ? '☀️ Light' : '🌙 Dark';
+  });
+
+  // Fetch markdown
+  const res = await fetch("https://raw.githubusercontent.com/D3vEduardo/azurajs-scalar/main/README.md");
+  const markdown = await res.text();
+
+  // Render markdown
+  document.getElementById('content').innerHTML = marked.parse(markdown);
+
+  // 🔥 Syntax highlight REAL
+  document.querySelectorAll('pre code').forEach((block) => {
+    hljs.highlightElement(block);
+  });
+</script>
+
 </body>
 </html>
