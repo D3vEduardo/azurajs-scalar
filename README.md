@@ -1,4 +1,4 @@
-# @azurajs/scalar 📘
+# Scalar for AzuraJS 📘
 
 > Proxy middleware and controller to scalar documentation. 🔗
 
@@ -77,7 +77,7 @@ Create a custom HTML template for your API documentation with full control over 
 <!doctype html>
 <html>
   <head>
-    <title>Versum API - Sistine Chapel Theme</title>
+    <title>Api Docs</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -124,11 +124,11 @@ Create a custom HTML template for your API documentation with full control over 
   </head>
 
   <body>
-    <div id="app">Carregando...</div>
+    <div id="app">Loading...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
     <script>
-      // Busca o spec da porta 4002
+      // Fetch api spec
       fetch("&{api_spec_url}")
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -148,12 +148,12 @@ Create a custom HTML template for your API documentation with full control over 
           });
         })
         .catch((err) => {
-          console.error("Erro ao carregar spec:", err);
+          console.error("Erro on fetch api spec:", err);
           document.getElementById("app").innerHTML =
             `<pre style="color: red; padding: 20px;">
 Erro ao carregar API spec: ${err.message}
 
-Verifique se a API está rodando em &{proxy_url}
+Check if api is running on &{proxy_url}
             </pre>`;
         });
     </script>
